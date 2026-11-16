@@ -1,65 +1,84 @@
-# Log Perjalanan Hidup (game)
+# Log Perjalanan Hidup — the game
 
-Story RPG tanpa battle, versi interaktif seri tulisan **Log Perjalanan Hidup** karya Zain Bagus di Medium.
-Satu artikel = satu chapter yang bisa dimainkan.
+A narrative, combat-free top-down RPG that turns the **"Log Perjalanan Hidup"** (*Life Journey Log*) essay series by Zain Bagus on Medium into something you can walk through. One essay, one playable chapter.
 
-Phaser 3 + TypeScript + Vite. Grafis Kenney RPG Urban Pack (CC0), musik CC0 dari OpenGameArt.
+Built with **Phaser 3 + TypeScript + Vite**. Art from Kenney's RPG Urban Pack (CC0), music from OpenGameArt (CC0).
 
-## Main
+> In-game text is in Indonesian, because it is the story itself. Everything around the code is in English.
+
+## Getting started
 
 ```bash
 npm install
 npm run dev      # http://localhost:5174
-npm test         # gaya tulisan, integritas peta, simulasi tamat Chapter 1
-npm run build    # typecheck + build ke dist/
-npm run assets   # potong ulang sprite dari assets-src/
+npm test         # writing-style check, map integrity, full Chapter 1 playthrough simulation
+npm run build    # typecheck + production build to dist/
+npm run assets   # regenerate sprites from assets-src/ (requires Python + Pillow)
 ```
 
-## Kontrol
+## Controls
 
-| Aksi | Keyboard | Sentuh |
+| Action | Keyboard | Touch |
 |---|---|---|
-| Jalan | panah / WASD | tahan layar ke arah tujuan |
-| Ngobrol, lanjut dialog | E / Spasi / Enter | ketuk |
-| Pilih jawaban | atas / bawah, lalu E | ketuk jawabannya |
-| Lewati prolog | Esc | ketuk "lewati >>" |
-| Suara on/off | M | |
+| Move | Arrow keys / WASD | Hold the screen toward where you want to go |
+| Talk, advance dialogue | E / Space / Enter | Tap |
+| Pick an answer | Up / Down, then E | Tap the answer |
+| Skip prologue | Esc | Tap "lewati >>" |
+| Toggle sound | M | |
 
-## Isi (prototipe v0.3). Chapter 1, sekitar 10 menit
+## What's in v0.3 — Chapter 1 (about 10 minutes)
 
-1. **Pembukaan.** PRESS START, prolog terminal (`cat 001-masa-kecil.log`), kartu "Chapter 1. Bandung".
-2. **Bandung.** Rumah yang ribut, Siti mengajak main ke rumahnya.
-3. **Warnet.** Layar monitor "game online". Farming item, jual ke om_kantor, jokiin akun om_helm.
-4. **Halte bus**, lalu kartu "Liburan. Malang".
-5. **Malang.** Rumah Kakek dan Nenek. Quest tata krama berbentuk pilihan (makanan jangan dianggurin,
-   piring langsung dicuci, bungkus dibuka pakai tangan). Jawaban salah ditegur, lalu diulang.
-6. **Ending.** Narasi penutup dari artikel, "Bersambung."
+1. **Opening.** PRESS START title over a live map, a terminal-style prologue (`cat 001-masa-kecil.log`), and a chapter card.
+2. **Bandung.** A noisy home, and Siti, the childhood friend whose house was always open.
+3. **The internet café.** A CRT monitor showing an "online game": farm items, sell them to a regular, level up someone's account.
+4. **The bus stop** to a holiday in Malang.
+5. **Malang.** The grandparents' house, with Javanese etiquette lessons as choice-based quests. Wrong answers get a gentle scolding and the question comes back.
+6. **Ending.** Closing narration taken from the essay, then "Bersambung" (*to be continued*).
 
-Progres tersimpan di browser. Menu judul menawarkan **Lanjutkan** atau **Mulai dari awal**.
+Progress is saved in the browser. The title menu offers **Continue** or **Start over**.
 
-## Mengubah cerita
+## Architecture
 
-| Mau mengubah | File |
+The story is data, not code. Each map declares its layout, NPCs and interaction scripts built from a small set of actions:
+
+| Action | Effect |
 |---|---|
-| Kalimat narasi, prolog, ending, chat warnet | `src/story/chapter1.ts` |
-| Dialog NPC, quest, pilihan, petunjuk tujuan | `src/maps/bandung.ts`, `src/maps/malang.ts` |
-| Tata letak peta | fungsi `buildBandung` / `buildMalang` di file yang sama |
-| BGM tiap suasana | `src/data/tracks.ts` |
+| `say` | Dialogue lines with typewriter effect |
+| `choose` | Multiple-choice question, repeated until the correct answer is picked |
+| `set` | Set a progress flag |
+| `walk` | Move an NPC along a path (non-blocking) |
+| `narrate` | Fade to black, play lines, fade back |
+| `teleport` | Move the player |
+| `goto` | Switch scene (internet café, travel card) |
+| `end` | Closing narration and end of chapter |
 
-Cerita ditulis sebagai data (`say`, `choose`, `set`, `walk`, `narrate`, `goto`, `end`, lihat `src/story/types.ts`),
-jadi chapter baru cukup menambah peta dan skrip tanpa mengubah engine.
-
-`npm test` menolak teks cerita yang memakai titik dua atau em dash, sesuai gaya tulisan seri ini,
-dan menyimulasikan Chapter 1 dari awal sampai tamat supaya alur quest tidak pernah buntu.
-
-## Struktur
+A new chapter means a new map file and a new story file. The engine (`WorldScene`) does not change.
 
 ```
-src/story/      teks cerita, tipe aksi, tes
-src/maps/       peta + NPC + skrip per kota
-src/scenes/     Title, Story (prolog/kartu), World (engine), Warnet
+src/story/      story text, action types, tests
+src/maps/       one file per location: layout + NPCs + scripts
+src/scenes/     Title, Story (prologue/cards), World (engine), Warnet (café minigame)
 src/systems/    GridMap, renderGridMap, DialogueBox, Flags, Music, Sfx
-src/data/       config, index tile Kenney, daftar BGM
-assets-src/     sumber grafis Kenney (CC0)
+src/data/       config, Kenney tile indices, music tracks
+assets-src/     source art (Kenney, CC0)
 tools/          pack_assets.py
 ```
+
+## Editing the story
+
+| To change | Edit |
+|---|---|
+| Narration, prologue, ending, café chat | `src/story/chapter1.ts` |
+| NPC dialogue, quests, choices, objectives | `src/maps/bandung.ts`, `src/maps/malang.ts` |
+| Map layout | `buildBandung` / `buildMalang` in the same files |
+| Background music per location | `src/data/tracks.ts` |
+
+The test suite enforces the series' writing style (no colons or em dashes in story text) and simulates Chapter 1 from start to finish, so a broken quest chain fails the build instead of shipping.
+
+## Credits
+
+See [CREDITS.md](CREDITS.md). All third-party assets are CC0 or OFL.
+
+## License
+
+Code is MIT licensed (see [LICENSE](LICENSE)). The story text is © Zain Bagus, all rights reserved.

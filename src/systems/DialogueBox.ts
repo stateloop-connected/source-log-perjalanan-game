@@ -15,7 +15,8 @@ export class DialogueBox {
   private readonly nameText: Phaser.GameObjects.Text;
   private readonly bodyText: Phaser.GameObjects.Text;
   private readonly arrow: Phaser.GameObjects.Text;
-  private readonly optionTexts: Phaser.GameObjects.Text[] = [];
+  /** Answer buttons, stacked above the dialogue box. Big enough to hit with a thumb. */
+  private readonly optionButtons: { box: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }[] = [];
   private readonly width: number;
 
   private lines: Line[] = [];
@@ -89,18 +90,27 @@ export class DialogueBox {
     this.options = options;
     this.onChoose = onChoose;
     this.arrow.setVisible(false);
-    const startY = this.bodyText.y + this.bodyText.height + 6;
-    this.options.forEach((_label, i) => {
-      const t = this.scene.add
-        .text(14, startY + i * 13, '', { fontFamily: FONT, fontSize: '8px', color: COLOR.dim })
+
+    const h = 22;
+    const gap = 4;
+    const w = Math.min(this.width - 24, 340);
+    const x = this.scene.scale.width / 2;
+    const bottom = this.root.y - gap;
+    this.options.forEach((text, i) => {
+      const y = bottom - (this.options.length - i) * (h + gap) + h / 2;
+      const bg = this.scene.add.rectangle(0, 0, w, h, COLOR.panel, 0.96).setStrokeStyle(1, COLOR.panelEdge);
+      const label = this.scene.add
+        .text(-w / 2 + 10, 0, text, { fontFamily: FONT, fontSize: '8px', color: COLOR.text, wordWrap: { width: w - 20, useAdvancedWrap: true } })
+        .setOrigin(0, 0.5);
+      const box = this.scene.add.container(x, y, [bg, label]).setScrollFactor(0).setDepth(100_001).setSize(w, h);
+      box
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => this.select(i))
         .on('pointerup', () => {
           this.select(i);
           this.confirm();
         });
-      this.root.add(t);
-      this.optionTexts.push(t);
+      this.optionButtons.push({ box, bg, label });
     });
     this.select(0);
   }
@@ -152,12 +162,16 @@ export class DialogueBox {
 
   private select(i: number): void {
     this.selected = i;
-    this.optionTexts.forEach((t, j) => t.setText(`${j === i ? '>' : ' '} ${this.options[j]}`).setColor(j === i ? COLOR.name : COLOR.dim));
+    this.optionButtons.forEach((b, j) => {
+      const on = j === i;
+      b.bg.setFillStyle(on ? 0xf2cc60 : COLOR.panel, on ? 1 : 0.96).setStrokeStyle(1, on ? 0xffe9a8 : COLOR.panelEdge);
+      b.label.setColor(on ? '#0b0f18' : COLOR.text);
+    });
   }
 
   private clearOptions(): void {
-    for (const t of this.optionTexts) t.destroy();
-    this.optionTexts.length = 0;
+    for (const b of this.optionButtons) b.box.destroy();
+    this.optionButtons.length = 0;
     this.options = [];
     this.onChoose = undefined;
   }

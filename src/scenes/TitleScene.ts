@@ -4,6 +4,7 @@ import { BANDUNG_ROAD, buildBandung } from '../maps/bandung';
 import { MAPS } from '../maps';
 import { CARD_BANDUNG, FLAGS_KEY } from '../story/chapter1';
 import { CARD2, FLAGS2_KEY, PROLOGUE2, PROLOGUE2_COMMAND } from '../story/chapter2';
+import { CARD3, FLAGS3_KEY, PROLOGUE3, PROLOGUE3_COMMAND } from '../story/chapter3';
 import type { StoryData } from './StoryScene';
 import { LAST_MAP_KEY } from './WorldScene';
 import { renderGridMap } from '../systems/renderGridMap';
@@ -24,6 +25,15 @@ const CHAPTER2_STORY: StoryData = {
   card: CARD2,
   music: 'snowfall',
   next: { scene: 'world', data: { map: 'rumah-siti' } },
+};
+
+/** Chapter 3 opening. */
+const CHAPTER3_STORY: StoryData = {
+  command: PROLOGUE3_COMMAND,
+  lines: PROLOGUE3,
+  card: CARD3,
+  music: 'c64',
+  next: { scene: 'world', data: { map: 'bandung-sepi' } },
 };
 
 /** Last visited map, if its chapter still has saved progress (so "Continue" makes sense). */
@@ -76,14 +86,14 @@ export class TitleScene extends Phaser.Scene {
     const title2 = ui(cx, top + 25, 'HIDUP', 24, COLOR.name).setOrigin(0.5);
     title1.setShadow(2, 2, '#000000', 0, false, true);
     title2.setShadow(2, 2, '#000000', 0, false, true);
-    ui(cx, top + 49, 'sebuah cerita, dua chapter', 8, COLOR.dim).setOrigin(0.5);
+    ui(cx, top + 49, 'sebuah cerita, tiga chapter', 8, COLOR.dim).setOrigin(0.5);
 
     const press = ui(cx, height * 0.69, 'PRESS START', 8, COLOR.text).setOrigin(0.5);
     const pressHint = ui(cx, height * 0.69 + 16, touch ? 'ketuk layar' : 'Enter / ketuk layar', 8, COLOR.dim).setOrigin(0.5);
     this.tweens.add({ targets: press, alpha: 0.15, duration: 600, yoyo: true, repeat: -1, ease: 'Stepped', easeParams: [3] });
 
     if (!touch) ui(8, height - 8, 'M  suara', 8, COLOR.dim).setOrigin(0, 1);
-    ui(width - 8, height - 8, 'prototipe v0.5', 8, COLOR.dim).setOrigin(1, 1);
+    ui(width - 8, height - 8, 'prototipe v0.6', 8, COLOR.dim).setOrigin(1, 1);
 
     this.cameras.main.fadeIn(800, 11, 15, 24);
     Music.play(this, TRACKS.town, MUSIC_VOLUME.title, 1500);
@@ -142,11 +152,12 @@ export class TitleScene extends Phaser.Scene {
       ...(resume ? [{ label: 'Lanjutkan', run: () => this.leave('world', { map: resume }) }] : []),
       { label: `${CARD_BANDUNG.label}. ${CARD_BANDUNG.title}`, run: start(FLAGS_KEY) },
       { label: `${CARD2.label}. ${CARD2.title}`, run: start(FLAGS2_KEY, CHAPTER2_STORY) },
+      { label: `${CARD3.label}. ${CARD3.title}`, run: start(FLAGS3_KEY, CHAPTER3_STORY) },
     ];
     const cx = this.scale.width / 2;
     this.optionTexts = this.options.map((o, i) =>
       this.add
-        .text(cx, this.scale.height * 0.6 + i * 15, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
+        .text(cx, this.scale.height * 0.56 + i * 14, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(100_001)

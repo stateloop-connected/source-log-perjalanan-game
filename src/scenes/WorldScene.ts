@@ -36,6 +36,7 @@ export class WorldScene extends Phaser.Scene {
   private npcs = new Map<string, Phaser.Physics.Arcade.Sprite>();
   private npcDefs = new Map<string, NpcDef>();
   private aids = new Map<string, Phaser.GameObjects.Image>();
+  private colliders = new Map<string, Phaser.Physics.Arcade.Collider>();
   private tint!: Phaser.GameObjects.Rectangle;
   private pad?: TouchPad;
   private dialogue!: DialogueBox;
@@ -60,6 +61,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = new Map();
     this.npcDefs = new Map();
     this.aids = new Map();
+    this.colliders = new Map();
     this.busy = false;
     this.ended = false;
     this.facing = 'down';
@@ -82,21 +84,8 @@ export class WorldScene extends Phaser.Scene {
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, solid);
 
-    for (const n of this.def.npcs) {
-      if (n.show && !n.show(has)) continue;
-      const p = feet(n.at);
-      const s = this.makeChar(n.sprite, p.x, p.y).setImmovable(true);
-      s.play(`${n.sprite}-idle-${n.face ?? 'down'}`);
-      if (n.ghost) {
-        s.setAlpha(0.6).setTint(0xc8d8ff);
-        this.tweens.add({ targets: s, alpha: 0.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      }
-      else if (!n.follow?.(has)) this.physics.add.collider(this.player, s);
-      this.npcs.set(n.id, s);
-      this.npcDefs.set(n.id, n);
-      const aid = n.aid?.(has);
-      if (aid) this.aids.set(n.id, this.add.image(s.x, s.y + 1, 'props', PROP_FRAME[aid]).setOrigin(0.5, 1));
-    }
+    for (const n of this.def.npcs) this.npcDefs.set(n.id, n);
+    this.syncNpcs(true);
 
     const cam = this.cameras.main;
     // Rooms smaller than the screen sit in the middle, surrounded by black.
@@ -130,6 +119,48 @@ export class WorldScene extends Phaser.Scene {
 
   // ---------- karakter ----------
 
+  /**
+   * Make the NPCs on screen match the story flags. Runs on create and after every flag
+   * change, so someone can arrive mid-scene (Si Kupluk) or leave without reloading the map.
+   */
+  private syncNpcs(initial = false): void {
+    for (const n of this.npcDefs.values()) {
+      const want = !n.show || n.show(this.has);
+      const s = this.npcs.get(n.id);
+      if (want && !s) this.spawnNpc(n, !initial);
+      // An NPC that is mid-walk (body off) is already leaving on its own.
+      else if (!want && s && s.body?.enable) this.removeNpc(n.id);
+    }
+  }
+
+  private spawnNpc(n: NpcDef, fadeIn: boolean): void {
+    const p = feet(n.at);
+    const s = this.makeChar(n.sprite, p.x, p.y).setImmovable(true);
+    s.play(`${n.sprite}-idle-${n.face ?? 'down'}`);
+    if (n.ghost) {
+      s.setAlpha(0.6).setTint(0xc8d8ff);
+      this.tweens.add({ targets: s, alpha: 0.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    } else {
+      this.colliders.set(n.id, this.physics.add.collider(this.player, s));
+      if (fadeIn) {
+        s.setAlpha(0);
+        this.tweens.add({ targets: s, alpha: 1, duration: 400 });
+      }
+    }
+    this.npcs.set(n.id, s);
+    const aid = n.aid?.(this.has);
+    if (aid) this.aids.set(n.id, this.add.image(s.x, s.y + 1, 'props', PROP_FRAME[aid]).setOrigin(0.5, 1));
+  }
+
+  private removeNpc(id: string): void {
+    this.colliders.get(id)?.destroy();
+    this.colliders.delete(id);
+    this.aids.get(id)?.destroy();
+    this.aids.delete(id);
+    this.npcs.get(id)?.destroy();
+    this.npcs.delete(id);
+  }
+
   private makeChar(key: CharKey, x: number, y: number): Phaser.Physics.Arcade.Sprite {
     const s = this.physics.add.sprite(x, y, key, 1).setOrigin(0.5, 1);
     s.body!.setSize(10, 6).setOffset(3, 10);
@@ -151,6 +182,9 @@ export class WorldScene extends Phaser.Scene {
   private run(actions: Action[]): void {
     if (actions.length === 0) {
       this.busy = false;
+      // After the whole script, not after each flag: an NPC who walks off as part of the
+      // script (Siti going home, a shadow fading) must get to finish that walk first.
+      if (!this.ended) this.syncNpcs();
       this.refreshObjective();
       return;
     }
@@ -221,12 +255,8 @@ export class WorldScene extends Phaser.Scene {
       targets: s,
       tweens: [...steps, ...(vanish ? [{ alpha: 0, duration: 250 }] : [])],
       onComplete: () => {
-        if (vanish) {
-          s.setVisible(false);
-          this.npcs.delete(id);
-          this.aids.get(id)?.destroy();
-          this.aids.delete(id);
-        } else {
+        if (vanish) this.removeNpc(id);
+        else {
           // Body was switched off for the walk; switch it back on so the NPC can be talked to again.
           s.enableBody(true, s.x, s.y, true, true);
           s.play(`${key}-idle-down`);
@@ -327,6 +357,8 @@ export class WorldScene extends Phaser.Scene {
       // Taps on choice options and touch buttons are handled by those objects.
       // A release of the analog stick is not a tap either.
       if (this.pad?.owns(p) && !this.dialogue.isOpen) return;
+      // While choosing, only a tap on an answer button counts; a stray tap must not pick for you.
+      if (this.dialogue.isChoosing) return;
       if (over.length === 0 && this.time.now - this.pointerDownAt < TAP_MS) this.act();
     });
   }
@@ -371,6 +403,7 @@ export class WorldScene extends Phaser.Scene {
     for (const [id, s] of this.npcs) {
       const def = this.npcDefs.get(id);
       if (!def?.follow?.(this.has) || !s.visible) continue;
+      s.body!.checkCollision.none = true; // a companion never blocks the player
       const dx = this.player.x - s.x;
       const dy = this.player.y - s.y;
       const dist = Math.hypot(dx, dy);

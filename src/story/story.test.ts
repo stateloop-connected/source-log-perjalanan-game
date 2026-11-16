@@ -3,11 +3,16 @@ import { MAPS } from '../maps';
 import { Flags } from '../systems/Flags';
 import { AFTER_WARNET, CARD_BANDUNG, CARD_MALANG, ENDING, FLAG, MALANG_INTRO, PROLOGUE, SITI_HOUSE, WARNET } from './chapter1';
 import * as C2 from './chapter2';
+import * as C3 from './chapter3';
 import type { Action, Line, MapDef } from './types';
+import { TRACKS } from '../data/tracks';
+
+const TRACKS_TOWN = TRACKS.town;
 
 const CHAPTERS = [
   { order: Object.values(FLAG) as string[], maps: [MAPS.bandung, MAPS.malang] },
   { order: Object.values(C2.FLAG2) as string[], maps: [MAPS['rumah-siti'], MAPS['bandung-siti']] },
+  { order: Object.values(C3.FLAG3) as string[], maps: [MAPS['bandung-sepi'], MAPS.jalanan] },
 ];
 
 /** Semua baris teks dalam daftar aksi, termasuk prompt & jawaban pilihan. */
@@ -39,6 +44,9 @@ function allLines(): Line[] {
     { text: C2.CARD2.caption },
     ...[C2.ROOM_INTRO, C2.PS_LINES, C2.SAKIT_LINES, C2.WALKER_LINES, C2.NANTI_LINES, C2.KURSI_LINES, C2.RENTAL_LINES, C2.PERGI_LINES, C2.AFTER_PERGI, C2.ENDING2].flat(),
     ...Object.values(C2.MEMORY_LINES).map((text) => ({ text })),
+    ...C3.PROLOGUE3.map((text) => ({ text })),
+    { text: C3.CARD3.caption },
+    ...[C3.SEPI_LINES, C3.DAY1_WARNET, C3.DAY1_HOME, C3.DAY2_WARNET, C3.WARUNG_LINES, C3.DAY2_HOME, C3.DAY3_WARNET, C3.JALAN_INTRO, C3.MEET_LINES, C3.MAKAN_LINES, C3.ENDING3].flat(),
     ...PROLOGUE.map((text) => ({ text })),
     ...[CARD_BANDUNG, CARD_MALANG].flatMap((c) => [{ text: c.caption }]),
     ...SITI_HOUSE,
@@ -154,6 +162,46 @@ describe('playthrough', () => {
     const ends = ['bayang-stik', 'bayang-masak', 'bayang-nanti'].map((id) => play(town, id, f));
     expect(ends.slice(0, 2).every((e) => e.length === 0)).toBe(true);
     expect(ends[2].some((a) => 'end' in a)).toBe(true);
+  });
+
+  it('Chapter 3 bisa ditamatkan. Tiga hari sepi, lalu keluarga dari jalanan', () => {
+    const F = C3.FLAG3;
+    const f = new Set<string>([F.INTRO]);
+    const sepi = MAPS['bandung-sepi'];
+    const street = MAPS.jalanan;
+    const has = (x: string) => f.has(x);
+
+    for (const id of ['warnet', 'rumah', 'warnet', 'warung', 'rumah']) play(sepi, id, f);
+    expect(f.has(F.H2_RUMAH)).toBe(true);
+    const out = play(sepi, 'warnet', f);
+    expect(out[0] && 'goto' in out[0] && out[0].goto.data).toMatchObject({ map: 'jalanan' });
+
+    f.add(F.J_INTRO);
+    play(street, 'ikat', f);
+    expect(f.has(F.DEKAT1)).toBe(false); // belum lontang-lantung, cuma lewat
+    play(street, 'bangku', f);
+    play(street, 'halte', f);
+    for (let i = 0; i < 3; i++) play(street, 'ikat', f);
+    expect(f.has(F.GABUNG)).toBe(true);
+    expect(typeof street.music === 'function' && street.music(has)).toBe(TRACKS_TOWN);
+
+    play(street, 'merah', f);
+    expect(f.has(F.MAKAN_DATANG)).toBe(true);
+    const kupluk = street.npcs.find((n) => n.id === 'kupluk')!;
+    expect(kupluk.show?.(has)).toBe(true);
+    play(street, 'kupluk', f);
+    expect(kupluk.follow?.(has)).toBe(true);
+    play(street, 'ikat', f);
+    expect(f.has(F.MAKAN_DONE)).toBe(true);
+
+    play(street, 'merah', f);
+    expect(f.has(F.RAHASIA)).toBe(true);
+    play(street, 'om-botak', f); // belum punya gitar, belum bisa ngamen
+    expect(f.has(F.N_BOTAK)).toBe(false);
+    play(street, 'ikat', f);
+    for (const id of ['om-botak', 'om-helm', 'warung']) play(street, id, f);
+    const end = play(street, 'ikat', f);
+    expect(end.some((a) => 'end' in a)).toBe(true);
   });
 
   it('halte tidak bisa dipakai sebelum ke warnet', () => {

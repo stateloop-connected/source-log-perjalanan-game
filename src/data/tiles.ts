@@ -50,5 +50,5 @@ export type Wall = { top: readonly number[]; bottom: readonly number[] };
  */
 export const CHAR_COL = { left: 0, down: 1, up: 2, right: 3 } as const;
 export type Facing = keyof typeof CHAR_COL;
-export const CHARACTERS = ['zain', 'siti', 'kakek', 'nenek', 'pekerja', 'bapak'] as const;
+export const CHARACTERS = ['zain', 'siti', 'kakek', 'nenek', 'pekerja', 'bapak', 'punk1', 'punk2', 'punk3'] as const;
 export type CharKey = (typeof CHARACTERS)[number];

@@ -24,7 +24,7 @@ npm run assets   # regenerate sprites from assets-src/ (requires Python + Pillow
 |---|---|---|
 | Move | Arrow keys / WASD | Analog stick: touch anywhere on the left side and drag |
 | Talk, advance dialogue | E / Space / Enter | **OK** button (bottom right), or tap the screen |
-| Pick an answer | Up / Down, then E | Tap the answer |
+| Pick an answer | Up / Down, then E | Tap one of the answer buttons above the dialogue box |
 | Skip prologue | Esc | Tap "lewati >>" |
 | Toggle sound | M | |
 | Fullscreen | | `[ ]` button (top right, Android) |
@@ -33,7 +33,7 @@ npm run assets   # regenerate sprites from assets-src/ (requires Python + Pillow
 
 The game picks its logical resolution from the screen so the zoom is always a whole number (at least 2x on phones) and the canvas fills the screen with no black bars: 422x195 on a 844x390 phone, 427x240 on a 1280x720 desktop. Holding a phone upright shows a "rotate your phone" screen. On iPhone, *Share → Add to Home Screen* opens the game fullscreen without Safari's bars.
 
-## Chapters (v0.5)
+## Chapters (v0.6)
 
 The title screen lets you pick a chapter, or **Continue** where you left off. Progress is saved in the browser.
 
@@ -54,6 +54,19 @@ A quiet chapter about loss, based on the second essay. The illness itself is nev
 3. **The wheelchair.** You take her to the PS rental, the way she used to take you in.
 4. **After.** The music stops, Bandung goes dark, and you look for three faint shadows of Siti in the places you shared. Each holds one memory from the essay. The music comes back with the first one.
 
+### Chapter 3 — Jalanan (*The Street*, about 8 minutes)
+
+Based on the third essay, about the months after Siti's death.
+
+1. **Three empty days.** Internet café, instant noodles, home. Push MMR, buy a stash of noodles, eat them dry out of the pack. Repeat until even the café gets boring.
+2. **Wandering.** Sit by the road, move, sit again.
+3. **Meeting them.** A group of street kids. At first you only end up in the same place, then you sit with them, then you talk.
+4. **The rule.** Food arrives, but nobody eats until everyone is there. Go find the one who is missing and bring him back (he follows you).
+5. **The secret.** When asked about home and parents, the story has you hide that you are not actually poor.
+6. **Busking** for three people, then the ending.
+
+The real names of the street kids are not known, so they go by descriptions: Si Ikat Kepala, Si Rambut Merah, Si Kupluk. Petty crime from the essay is mentioned only in the closing narration, never as a game mechanic.
+
 ## Architecture
 
 The story is data, not code. Each map declares its layout, NPCs and interaction scripts built from a small set of actions:
@@ -69,7 +82,7 @@ The story is data, not code. Each map declares its layout, NPCs and interaction 
 | `goto` | Switch scene (internet café, travel card) |
 | `end` | Closing narration and end of chapter |
 
-Maps can also declare per-state music (including silence), an ambience tint, the player's walking speed, and NPCs that follow the player, carry a walking aid or wheelchair, or appear as translucent "shadows".
+NPCs appear and leave as the story flags change, without reloading the map. Maps can also declare per-state music (including silence), an ambience tint, the player's walking speed, and NPCs that follow the player, carry a walking aid or wheelchair, or appear as translucent "shadows".
 
 A new chapter means a new map file and a new story file. The engine (`WorldScene`) does not change.
 
@@ -87,7 +100,7 @@ tools/          pack_assets.py
 
 | To change | Edit |
 |---|---|
-| Narration, prologue, ending text | `src/story/chapter1.ts`, `src/story/chapter2.ts` |
+| Narration, prologue, ending text | `src/story/chapter1.ts` … `chapter3.ts` |
 | NPC dialogue, quests, choices, objectives | `src/maps/*.ts` (one file per location) |
 | Map layout | the `build*` function in the same file |
 | Background music per location | `src/data/tracks.ts` |

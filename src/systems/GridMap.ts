@@ -3,6 +3,23 @@ import { TILE_ID, type Nine, type Wall } from '../data/tiles';
 
 export const EMPTY = -1;
 
+/**
+ * Indoor tiles (Kenney Roguelike Indoors) live in a second tileset. Their ids are
+ * offset by this value so one number can address either sheet. Use `indoor(i)`.
+ */
+export const INDOOR_BASE = 1000;
+export const indoor = (i: number) => INDOOR_BASE + i;
+
+/** Hand-drawn props in `props.png`, in strip order. See tools/pack_assets.py. */
+export const PROP_FRAME = { tv: 0, walker: 1, wheelchair: 2, toys: 3 } as const;
+export type PropName = keyof typeof PROP_FRAME;
+
+export interface MapProp {
+  tx: number;
+  ty: number;
+  name: PropName;
+}
+
 /** Label teks di peta (papan nama warung, warnet, dst). Posisi dalam tile. */
 export interface MapLabel {
   tx: number;
@@ -22,6 +39,7 @@ export class GridMap {
   readonly over: number[][];
   readonly solid: boolean[][];
   readonly labels: MapLabel[] = [];
+  readonly props: MapProp[] = [];
 
   constructor(
     readonly cols: number,
@@ -104,6 +122,12 @@ export class GridMap {
   /** Objek 1 tile di lapisan dekorasi. */
   prop(x: number, y: number, t: number, solid = true): this {
     this.put(this.deco, x, y, t);
+    return solid ? this.block(x, y, 1, 1) : this;
+  }
+
+  /** Hand-drawn prop (props.png), y-sorted with characters. */
+  sprite(x: number, y: number, name: PropName, solid = true): this {
+    this.props.push({ tx: x, ty: y, name });
     return solid ? this.block(x, y, 1, 1) : this;
   }
 

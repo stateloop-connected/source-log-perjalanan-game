@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
 import { COLOR, FONT, TILE } from '../data/config';
 import { BANDUNG_ROAD, buildBandung } from '../maps/bandung';
-import { CARD_BANDUNG, FLAG, FLAGS_KEY } from '../story/chapter1';
+import { MAPS } from '../maps';
+import { CARD_BANDUNG, FLAGS_KEY } from '../story/chapter1';
+import { CARD2, FLAGS2_KEY, PROLOGUE2, PROLOGUE2_COMMAND } from '../story/chapter2';
+import type { StoryData } from './StoryScene';
+import { LAST_MAP_KEY } from './WorldScene';
 import { renderGridMap } from '../systems/renderGridMap';
 import { Flags } from '../systems/Flags';
 import { Music, MUSIC_VOLUME, TRACKS } from '../systems/Music';
@@ -12,9 +16,24 @@ import { Sfx } from '../systems/Sfx';
  * dan Siti berjalan di jalan utama. Alurnya PRESS START, lalu menu (kalau ada
  * progres tersimpan), lalu prolog atau langsung lanjut main.
  */
-/** Peta terakhir yang dikunjungi, untuk "Lanjutkan". */
-function resumeMap(): string {
-  return new Flags(FLAGS_KEY).has(FLAG.M_INTRO) ? 'malang' : 'bandung';
+/** Chapter 2 opening, passed to StoryScene. */
+const CHAPTER2_STORY: StoryData = {
+  command: PROLOGUE2_COMMAND,
+  lines: PROLOGUE2,
+  card: CARD2,
+  music: 'snowfall',
+  next: { scene: 'world', data: { map: 'rumah-siti' } },
+};
+
+/** Last visited map, if its chapter still has saved progress (so "Continue" makes sense). */
+function resumeMap(): string | undefined {
+  try {
+    const id = localStorage.getItem(LAST_MAP_KEY);
+    const def = id ? MAPS[id] : undefined;
+    return def && localStorage.getItem(def.flagsKey) ? def.id : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export class TitleScene extends Phaser.Scene {
@@ -54,14 +73,14 @@ export class TitleScene extends Phaser.Scene {
     const title2 = ui(cx, 92, 'HIDUP', 24, COLOR.name).setOrigin(0.5);
     title1.setShadow(2, 2, '#000000', 0, false, true);
     title2.setShadow(2, 2, '#000000', 0, false, true);
-    ui(cx, 118, `${CARD_BANDUNG.label}. ${CARD_BANDUNG.title}`, 8, COLOR.dim).setOrigin(0.5);
+    ui(cx, 118, 'sebuah cerita, dua chapter', 8, COLOR.dim).setOrigin(0.5);
 
     const press = ui(cx, 186, 'PRESS START', 8, COLOR.text).setOrigin(0.5);
     const pressHint = ui(cx, 202, 'Enter / ketuk layar', 8, COLOR.dim).setOrigin(0.5);
     this.tweens.add({ targets: press, alpha: 0.15, duration: 600, yoyo: true, repeat: -1, ease: 'Stepped', easeParams: [3] });
 
     ui(8, height - 8, 'M  suara', 8, COLOR.dim).setOrigin(0, 1);
-    ui(width - 8, height - 8, 'prototipe v0.3', 8, COLOR.dim).setOrigin(1, 1);
+    ui(width - 8, height - 8, 'prototipe v0.4', 8, COLOR.dim).setOrigin(1, 1);
 
     this.cameras.main.fadeIn(800, 11, 15, 24);
     Music.play(this, TRACKS.town, MUSIC_VOLUME.title, 1500);
@@ -110,25 +129,21 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private openMenu(): void {
-    const saved = new Flags(FLAGS_KEY);
-    const fresh = () => {
-      saved.reset();
-      this.leave('story');
-    };
-    // Tanpa progres tersimpan tidak ada yang perlu dipilih, langsung ke prolog.
-    if (!saved.has(FLAG.INTRO)) {
-      fresh();
-      return;
-    }
     this.stage = 'menu';
+    const resume = resumeMap();
+    const start = (key: string, data?: StoryData) => () => {
+      new Flags(key).reset();
+      this.leave('story', data);
+    };
     this.options = [
-      { label: 'Lanjutkan', run: () => this.leave('world') },
-      { label: 'Mulai dari awal', run: fresh },
+      ...(resume ? [{ label: 'Lanjutkan', run: () => this.leave('world', { map: resume }) }] : []),
+      { label: `${CARD_BANDUNG.label}. ${CARD_BANDUNG.title}`, run: start(FLAGS_KEY) },
+      { label: `${CARD2.label}. ${CARD2.title}`, run: start(FLAGS2_KEY, CHAPTER2_STORY) },
     ];
     const cx = this.scale.width / 2;
     this.optionTexts = this.options.map((o, i) =>
       this.add
-        .text(cx, 182 + i * 16, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
+        .text(cx, 170 + i * 15, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(100_001)
@@ -156,10 +171,10 @@ export class TitleScene extends Phaser.Scene {
     );
   }
 
-  private leave(next: 'story' | 'world'): void {
+  private leave(next: 'story' | 'world', data?: object): void {
     if (this.stage === 'leaving') return;
     this.stage = 'leaving';
     this.cameras.main.fadeOut(600, 11, 15, 24);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start(next, next === 'world' ? { map: resumeMap() } : undefined));
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start(next, data));
   }
 }

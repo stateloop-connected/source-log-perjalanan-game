@@ -11,6 +11,8 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     this.load.setPath('assets/');
     this.load.image('city', 'city.png');
+    this.load.image('indoor', 'indoor.png');
+    this.load.spritesheet('props', 'props.png', { frameWidth: TILE, frameHeight: TILE });
     for (const c of CHARACTERS) this.load.spritesheet(c, `${c}.png`, { frameWidth: TILE, frameHeight: TILE });
     for (const t of Object.values(TRACKS)) if (t.preload) this.load.audio(t.key, t.path);
   }

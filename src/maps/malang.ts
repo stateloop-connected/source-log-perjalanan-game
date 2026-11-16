@@ -1,5 +1,5 @@
 import { TILE_ID } from '../data/tiles';
-import { ENDING, FLAG, KAKEK, MALANG_INTRO, NENEK } from '../story/chapter1';
+import { ENDING, FLAG, FLAGS_KEY, KAKEK, MALANG_INTRO, NENEK } from '../story/chapter1';
 import type { MapDef } from '../story/types';
 import { GridMap } from '../systems/GridMap';
 import { TRACKS } from '../data/tracks';
@@ -41,6 +41,7 @@ export function buildMalang(): GridMap {
 
 export const MALANG: MapDef = {
   id: 'malang',
+  flagsKey: FLAGS_KEY,
   build: buildMalang,
   music: TRACKS.lullaby,
   spawn: { tx: 8, ty: ROAD },

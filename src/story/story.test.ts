@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { MAPS } from '../maps';
 import { Flags } from '../systems/Flags';
 import { AFTER_WARNET, CARD_BANDUNG, CARD_MALANG, ENDING, FLAG, MALANG_INTRO, PROLOGUE, SITI_HOUSE, WARNET } from './chapter1';
+import * as C2 from './chapter2';
 import type { Action, Line, MapDef } from './types';
 
-const ORDER = Object.values(FLAG);
+const CHAPTERS = [
+  { order: Object.values(FLAG) as string[], maps: [MAPS.bandung, MAPS.malang] },
+  { order: Object.values(C2.FLAG2) as string[], maps: [MAPS['rumah-siti'], MAPS['bandung-siti']] },
+];
 
 /** Semua baris teks dalam daftar aksi, termasuk prompt & jawaban pilihan. */
 function linesOf(actions: Action[]): Line[] {
@@ -17,19 +21,24 @@ function linesOf(actions: Action[]): Line[] {
   });
 }
 
-/** Evaluasi skrip di setiap titik progres (prefix urutan flag). */
-function everyState<T>(fn: (has: (f: string) => boolean) => T[]): T[] {
+/** Evaluate scripts at every point of progress (each prefix of the chapter's flag order). */
+function everyState<T>(fn: (has: (f: string) => boolean, maps: MapDef[]) => T[]): T[] {
   const out: T[] = [];
-  for (let n = 0; n <= ORDER.length; n++) {
-    const set = new Set(ORDER.slice(0, n));
-    out.push(...fn((f) => set.has(f as never)));
+  for (const { order, maps } of CHAPTERS) {
+    for (let n = 0; n <= order.length; n++) {
+      const set = new Set(order.slice(0, n));
+      out.push(...fn((f) => set.has(f), maps));
+    }
   }
   return out;
 }
 
 function allLines(): Line[] {
-  const maps = Object.values(MAPS);
   return [
+    ...C2.PROLOGUE2.map((text) => ({ text })),
+    { text: C2.CARD2.caption },
+    ...[C2.ROOM_INTRO, C2.PS_LINES, C2.SAKIT_LINES, C2.WALKER_LINES, C2.NANTI_LINES, C2.KURSI_LINES, C2.RENTAL_LINES, C2.PERGI_LINES, C2.AFTER_PERGI, C2.ENDING2].flat(),
+    ...Object.values(C2.MEMORY_LINES).map((text) => ({ text })),
     ...PROLOGUE.map((text) => ({ text })),
     ...[CARD_BANDUNG, CARD_MALANG].flatMap((c) => [{ text: c.caption }]),
     ...SITI_HOUSE,
@@ -38,8 +47,8 @@ function allLines(): Line[] {
     ...ENDING,
     ...WARNET.intro,
     ...[WARNET.chatBuy, WARNET.chatJoki, WARNET.chatThanks].map((c) => ({ text: c.text })),
-    ...everyState((has) => maps.flatMap((m) => [...linesOf(m.onEnter(has)), ...m.interactables.flatMap((i) => linesOf(i.script(has)))])),
-    ...everyState((has) => maps.map((m) => ({ text: m.objective(has) ?? '' }))),
+    ...everyState((has, maps) => maps.flatMap((m) => [...linesOf(m.onEnter(has)), ...m.interactables.flatMap((i) => linesOf(i.script(has)))])),
+    ...everyState((has, maps) => maps.map((m) => ({ text: m.objective(has) ?? '' }))),
   ];
 }
 
@@ -49,8 +58,8 @@ describe('gaya tulisan', () => {
   });
 
   it('tiap pertanyaan punya tepat satu jawaban benar', () => {
-    const choices = everyState((has) =>
-      Object.values(MAPS).flatMap((m) => m.interactables.flatMap((i) => i.script(has).filter((a) => 'choose' in a))),
+    const choices = everyState((has, maps) =>
+      maps.flatMap((m) => m.interactables.flatMap((i) => i.script(has).filter((a) => 'choose' in a))),
     );
     expect(choices.length).toBeGreaterThan(0);
     for (const c of choices) if ('choose' in c) expect(c.choose.options.filter((o) => o.ok)).toHaveLength(1);
@@ -72,7 +81,7 @@ describe('peta', () => {
   });
 });
 
-describe('playthrough Chapter 1', () => {
+describe('playthrough', () => {
   /** Jalankan skrip seperti WorldScene, memilih jawaban benar. Kembalikan aksi goto/end yang ditemui. */
   function play(map: MapDef, id: string, flags: Set<string>): Action[] {
     const has = (f: string) => flags.has(f);
@@ -105,6 +114,46 @@ describe('playthrough Chapter 1', () => {
     expect(f.has(FLAG.BUNGKUS_DONE)).toBe(true);
     const end = play(malang, 'kakek', f);
     expect(end.some((a) => 'end' in a)).toBe(true);
+  });
+
+  it('Chapter 2 bisa ditamatkan, termasuk ketiga bayang-bayang', () => {
+    const F = C2.FLAG2;
+    const f = new Set<string>([F.RS_INTRO]);
+    const room = MAPS['rumah-siti'];
+    const town = MAPS['bandung-siti'];
+
+    expect(play(room, 'pintu', f)).toEqual([]); // belum boleh keluar
+    play(room, 'tv', f);
+    play(room, 'siti', f);
+    expect(f.has(F.MASAK_DONE)).toBe(true);
+    const out = play(room, 'pintu', f);
+    expect(out[0] && 'goto' in out[0] && out[0].goto.data).toMatchObject({ map: 'bandung-siti' });
+    expect(f.has(F.SAKIT)).toBe(true);
+
+    f.add(F.JALAN_INTRO);
+    play(town, 'siti', f);
+    const npc = town.npcs.find((n) => n.id === 'siti')!;
+    const has = (x: string) => f.has(x);
+    expect(npc.follow?.(has)).toBe(true);
+    expect(town.playerSpeed?.(has)).toBeLessThan(40); // langkah ikut melambat
+    expect(npc.aid?.(has)).toBe('walker');
+
+    play(town, 'bangku', f);
+    expect(f.has(F.KURSI_RODA)).toBe(true);
+    expect(npc.aid?.(has)).toBe('wheelchair');
+    expect(npc.follow?.(has)).toBe(false);
+    play(town, 'siti', f);
+    expect(npc.follow?.(has)).toBe(true);
+    play(town, 'rental', f);
+    expect(f.has(F.PERGI)).toBe(true);
+    expect(npc.show?.(has)).toBe(false);
+    expect(town.music instanceof Function && town.music(has)).toBeUndefined(); // hening
+    expect(town.tint?.(has)).toBeDefined();
+
+    f.add(F.PERGI_TOLD);
+    const ends = ['bayang-stik', 'bayang-masak', 'bayang-nanti'].map((id) => play(town, id, f));
+    expect(ends.slice(0, 2).every((e) => e.length === 0)).toBe(true);
+    expect(ends[2].some((a) => 'end' in a)).toBe(true);
   });
 
   it('halte tidak bisa dipakai sebelum ke warnet', () => {

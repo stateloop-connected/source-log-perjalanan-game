@@ -3,10 +3,11 @@ import { COLOR, FONT, PLAYER, TILE } from '../data/config';
 import type { CharKey, Facing } from '../data/tiles';
 import { BANDUNG_NOISE_AT } from '../maps/bandung';
 import { MAPS } from '../maps';
-import { FLAG, FLAGS_KEY, NOISE } from '../story/chapter1';
-import type { Action, At, Interactable, Line, MapDef } from '../story/types';
+import { FLAG, NOISE } from '../story/chapter1';
+import type { Action, At, Interactable, Line, MapDef, NpcDef } from '../story/types';
 import { DialogueBox } from '../systems/DialogueBox';
 import { Flags } from '../systems/Flags';
+import { PROP_FRAME } from '../systems/GridMap';
 import { renderGridMap } from '../systems/renderGridMap';
 import { Music, MUSIC_VOLUME, TRACKS } from '../systems/Music';
 import { Sfx } from '../systems/Sfx';
@@ -19,6 +20,9 @@ const px = (a: At) => ({ x: a.tx * TILE + TILE / 2, y: a.ty * TILE + TILE / 2 })
 /** Titik kaki karakter yang berdiri di tile itu. */
 const feet = (a: At) => ({ x: a.tx * TILE + TILE / 2, y: a.ty * TILE + TILE - 1 });
 
+/** Last visited map, used by "Continue" on the title screen. */
+export const LAST_MAP_KEY = 'lph:last';
+
 export interface WorldData {
   map?: string;
   spawn?: At;
@@ -29,6 +33,9 @@ export class WorldScene extends Phaser.Scene {
   private flags!: Flags;
   private player!: Phaser.Physics.Arcade.Sprite;
   private npcs = new Map<string, Phaser.Physics.Arcade.Sprite>();
+  private npcDefs = new Map<string, NpcDef>();
+  private aids = new Map<string, Phaser.GameObjects.Image>();
+  private tint!: Phaser.GameObjects.Rectangle;
   private dialogue!: DialogueBox;
   private prompt!: Phaser.GameObjects.Text;
   private objective!: Phaser.GameObjects.Text;
@@ -49,13 +56,20 @@ export class WorldScene extends Phaser.Scene {
     this.def = MAPS[data?.map ?? 'bandung'];
     this.spawnOverride = data?.spawn;
     this.npcs = new Map();
+    this.npcDefs = new Map();
+    this.aids = new Map();
     this.busy = false;
     this.ended = false;
     this.facing = 'down';
   }
 
   create(): void {
-    this.flags = new Flags(FLAGS_KEY);
+    this.flags = new Flags(this.def.flagsKey);
+    try {
+      localStorage.setItem(LAST_MAP_KEY, this.def.id);
+    } catch {
+      /* storage blocked: Continue falls back to the first map */
+    }
     const has = (f: string) => this.flags.has(f);
     const grid = this.def.build();
     const solid = renderGridMap(this, grid, true)!;
@@ -71,12 +85,24 @@ export class WorldScene extends Phaser.Scene {
       const p = feet(n.at);
       const s = this.makeChar(n.sprite, p.x, p.y).setImmovable(true);
       s.play(`${n.sprite}-idle-${n.face ?? 'down'}`);
-      this.physics.add.collider(this.player, s);
+      if (n.ghost) {
+        s.setAlpha(0.6).setTint(0xc8d8ff);
+        this.tweens.add({ targets: s, alpha: 0.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      }
+      else if (!n.follow?.(has)) this.physics.add.collider(this.player, s);
       this.npcs.set(n.id, s);
+      this.npcDefs.set(n.id, n);
+      const aid = n.aid?.(has);
+      if (aid) this.aids.set(n.id, this.add.image(s.x, s.y + 1, 'props', PROP_FRAME[aid]).setOrigin(0.5, 1));
     }
 
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, grid.widthPx, grid.heightPx).startFollow(this.player, true, 0.15, 0.15).setRoundPixels(true);
+    // Rooms smaller than the screen sit in the middle, surrounded by black.
+    const vw = this.scale.width;
+    const vh = this.scale.height;
+    const bx = Math.min(0, (grid.widthPx - vw) / 2);
+    const by = Math.min(0, (grid.heightPx - vh) / 2);
+    cam.setBounds(bx, by, Math.max(grid.widthPx, vw), Math.max(grid.heightPx, vh)).startFollow(this.player, true, 0.15, 0.15).setRoundPixels(true);
     cam.setBackgroundColor(COLOR.bg).fadeIn(500, 11, 15, 24);
 
     this.prompt = this.add
@@ -89,12 +115,12 @@ export class WorldScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setAlpha(0.9)
       .setDepth(90_000);
+    this.tint = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000).setOrigin(0).setScrollFactor(0).setDepth(80_000).setAlpha(0);
     this.shade = this.add.rectangle(0, 0, this.scale.width, this.scale.height, COLOR.bg).setOrigin(0).setScrollFactor(0).setDepth(95_000).setAlpha(0);
     this.dialogue = new DialogueBox(this);
 
     this.setupInput();
     if (this.def.id === 'bandung') this.startNoise();
-    Music.play(this, this.def.music, MUSIC_VOLUME.world, 1500);
     this.refreshObjective();
     this.run(this.def.onEnter(has));
   }
@@ -125,6 +151,7 @@ export class WorldScene extends Phaser.Scene {
       this.refreshObjective();
       return;
     }
+    if (this.ended) return;
     this.busy = true;
     const [a, ...rest] = actions;
     const next = () => this.run(rest);
@@ -133,6 +160,7 @@ export class WorldScene extends Phaser.Scene {
     else if ('choose' in a) this.ask(a.choose.prompt, a.choose.options, next);
     else if ('set' in a) {
       this.flags.add(a.set);
+      this.refreshObjective();
       next();
     } else if ('walk' in a) {
       this.walkNpc(a.walk.npc, a.walk.path, a.walk.vanish);
@@ -173,6 +201,7 @@ export class WorldScene extends Phaser.Scene {
   private walkNpc(id: string, path: At[], vanish?: boolean): void {
     const s = this.npcs.get(id);
     if (!s) return;
+    this.tweens.killTweensOf(s); // stop a shadow's pulsing before it fades out
     s.disableBody(true, false);
     const key = s.texture.key;
     let from = { x: s.x, y: s.y };
@@ -192,7 +221,13 @@ export class WorldScene extends Phaser.Scene {
         if (vanish) {
           s.setVisible(false);
           this.npcs.delete(id);
-        } else s.play(`${key}-idle-down`);
+          this.aids.get(id)?.destroy();
+          this.aids.delete(id);
+        } else {
+          // Body was switched off for the walk; switch it back on so the NPC can be talked to again.
+          s.enableBody(true, s.x, s.y, true, true);
+          s.play(`${key}-idle-down`);
+        }
       },
     });
   }
@@ -200,7 +235,7 @@ export class WorldScene extends Phaser.Scene {
   private finishChapter(lines: Line[]): void {
     this.ended = true;
     this.refreshObjective();
-    Music.play(this, TRACKS.smallThings, MUSIC_VOLUME.ending, 2500);
+    Music.play(this, this.def.endMusic ?? TRACKS.smallThings, MUSIC_VOLUME.ending, 2500);
     this.tweens.add({
       targets: this.shade,
       alpha: 1,
@@ -226,6 +261,8 @@ export class WorldScene extends Phaser.Scene {
 
   private where(i: Interactable): { x: number; y: number } | undefined {
     if ('npc' in i.at) {
+      // A companion walking with the player is never the target; the destination is.
+      if (this.npcDefs.get(i.at.npc)?.follow?.(this.has)) return undefined;
       const s = this.npcs.get(i.at.npc);
       return s?.visible && s.body?.enable ? { x: s.x, y: s.y - 4 } : undefined;
     }
@@ -309,9 +346,45 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  /** Objective text, ambience tint and music all follow the current flags. */
   private refreshObjective(): void {
     const o = this.ended ? undefined : this.def.objective(this.has);
     this.objective.setText(o ? `> ${o}` : '').setVisible(Boolean(o));
+    if (this.ended) return;
+
+    const t = this.def.tint?.(this.has);
+    if (t) this.tint.setFillStyle(t.color);
+    this.tweens.add({ targets: this.tint, alpha: t?.alpha ?? 0, duration: 1200 });
+
+    const track = typeof this.def.music === 'function' ? this.def.music(this.has) : this.def.music;
+    if (track) Music.play(this, track, MUSIC_VOLUME.world, 1500);
+    else Music.fadeOut(this, 2000);
+  }
+
+  /** Followers trail the player and stop a step behind. */
+  private updateFollowers(delta: number): void {
+    for (const [id, s] of this.npcs) {
+      const def = this.npcDefs.get(id);
+      if (!def?.follow?.(this.has) || !s.visible) continue;
+      const dx = this.player.x - s.x;
+      const dy = this.player.y - s.y;
+      const dist = Math.hypot(dx, dy);
+      const key = s.texture.key;
+      if (dist > 18) {
+        const step = Math.min(dist - 18, (this.speed() * delta) / 1000);
+        s.setPosition(s.x + (dx / dist) * step, s.y + (dy / dist) * step);
+        const dir: Facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+        s.play(`${key}-walk-${dir}`, true);
+      } else s.play(`${key}-idle-${this.facing}`, true);
+    }
+    for (const [id, img] of this.aids) {
+      const s = this.npcs.get(id);
+      if (s) img.setPosition(s.x, s.y + 1).setDepth(s.y + 0.5).setAlpha(s.alpha);
+    }
+  }
+
+  private speed(): number {
+    return this.def.playerSpeed?.(this.has) ?? PLAYER.SPEED;
   }
 
   // ---------- loop ----------
@@ -319,8 +392,10 @@ export class WorldScene extends Phaser.Scene {
   override update(_time: number, delta: number): void {
     this.dialogue.update(delta);
     this.updateMovement();
+    this.updateFollowers(delta);
     this.player.setDepth(this.player.y);
-    for (const s of this.npcs.values()) s.setDepth(s.y);
+    // Shadows glow above the night tint; everyone else is y-sorted with the player.
+    for (const [id, s] of this.npcs) s.setDepth(this.npcDefs.get(id)?.ghost ? 85_000 + s.y : s.y);
     this.updatePrompt();
   }
 
@@ -347,7 +422,7 @@ export class WorldScene extends Phaser.Scene {
 
     const len = Math.hypot(vx, vy);
     if (len === 0) return idle();
-    this.player.setVelocity((vx / len) * PLAYER.SPEED, (vy / len) * PLAYER.SPEED);
+    this.player.setVelocity((vx / len) * this.speed(), (vy / len) * this.speed());
     this.facing = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? 'left' : 'right') : vy < 0 ? 'up' : 'down';
     this.player.play(`zain-walk-${this.facing}`, true);
   }

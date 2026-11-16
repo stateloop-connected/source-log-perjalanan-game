@@ -13,6 +13,8 @@ export interface StoryData {
   command?: string;
   lines?: string[];
   card: { label: string; title: string; caption: string };
+  /** BGM under the text. Default is the ambient Contemplation track. */
+  music?: keyof typeof TRACKS;
   next: { scene: string; data?: object };
 }
 
@@ -51,7 +53,7 @@ export class StoryScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor(COLOR.bg).fadeIn(500, 11, 15, 24);
-    Music.play(this, TRACKS.contemplation, MUSIC_VOLUME.prologue, 2000);
+    Music.play(this, TRACKS[this.d.music ?? 'contemplation'], MUSIC_VOLUME.prologue, 2000);
 
     this.story = this.add
       .text(width / 2, height / 2, '', {

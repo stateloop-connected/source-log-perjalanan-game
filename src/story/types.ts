@@ -48,6 +48,12 @@ export interface NpcDef {
   face?: Facing;
   /** NPC hanya muncul kalau ini bernilai true. */
   show?: (has: Has) => boolean;
+  /** Alat bantu yang menempel pada NPC (alat bantu jalan, kursi roda). */
+  aid?: (has: Has) => 'walker' | 'wheelchair' | undefined;
+  /** NPC mengikuti pemain dari belakang. */
+  follow?: (has: Has) => boolean;
+  /** Bayang-bayang. Transparan dan bisa ditembus. */
+  ghost?: boolean;
 }
 
 export interface Interactable {
@@ -60,8 +66,17 @@ export interface Interactable {
 
 export interface MapDef {
   id: string;
+  /** Kunci penyimpanan progres. Satu chapter = satu kunci. */
+  flagsKey: string;
   build(): GridMap;
-  music: Track;
+  /** BGM peta. Fungsi boleh mengembalikan undefined untuk hening. */
+  music: Track | ((has: Has) => Track | undefined);
+  /** BGM saat chapter berakhir di peta ini. Default Small Things. */
+  endMusic?: Track;
+  /** Warna lapisan suasana (misalnya malam yang sunyi). */
+  tint?: (has: Has) => { color: number; alpha: number } | undefined;
+  /** Kecepatan jalan pemain, misalnya melambat saat menemani seseorang. */
+  playerSpeed?: (has: Has) => number | undefined;
   spawn: At;
   npcs: NpcDef[];
   interactables: Interactable[];

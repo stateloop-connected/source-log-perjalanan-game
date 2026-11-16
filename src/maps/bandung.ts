@@ -3,6 +3,7 @@ import {
   AFTER_WARNET,
   CARD_MALANG,
   FLAG,
+  FLAGS_KEY,
   INTRO,
   OM_BOTAK,
   OM_HELM,
@@ -23,7 +24,10 @@ const DOOR_SITI = { tx: 18, ty: 9 };
 const DOOR_WARNET = { tx: 30, ty: 9 };
 const HALTE = { tx: 24, ty: 16 };
 
-export function buildBandung(): GridMap {
+/** Park bench (left tile), used by Chapter 2. */
+export const PARK_BENCH = { tx: 6, ty: 20 };
+
+export function buildBandung(shopLabel = 'WARNET'): GridMap {
   const m = new GridMap(40, 24, TILE_ID.GRASS);
 
   // Deretan pohon di batas atas dan bawah.
@@ -37,7 +41,7 @@ export function buildBandung(): GridMap {
     doorCol: 3,
     door: TILE_ID.DOOR_GLASS,
     windows: [1, 5, 6],
-    label: 'WARNET',
+    label: shopLabel,
   });
 
   // Jalan setapak dari tiap pintu ke trotoar.
@@ -53,7 +57,8 @@ export function buildBandung(): GridMap {
 
   // Sebelah selatan. Taman, kios buah, halte.
   m.nine(m.ground, 2, 18, 11, 4, TILE_ID.PARK);
-  m.tree(4, 20).tree(8, 19, TILE_ID.TREE_ORANGE).tree(11, 21);
+  m.tree(4, 20).tree(9, 19, TILE_ID.TREE_ORANGE).tree(11, 21);
+  m.prop(PARK_BENCH.tx, PARK_BENCH.ty, TILE_ID.BENCH[0]).prop(PARK_BENCH.tx + 1, PARK_BENCH.ty, TILE_ID.BENCH[1]);
   m.prop(15, 17, TILE_ID.STALL[0]).prop(16, 17, TILE_ID.STALL[1]);
   m.tall(HALTE.tx, HALTE.ty, TILE_ID.BUS_SIGN);
   m.prop(25, 17, TILE_ID.BENCH[0]).prop(26, 17, TILE_ID.BENCH[1]);
@@ -63,7 +68,8 @@ export function buildBandung(): GridMap {
 
 export const BANDUNG: MapDef = {
   id: 'bandung',
-  build: buildBandung,
+  flagsKey: FLAGS_KEY,
+  build: () => buildBandung(),
   music: TRACKS.town,
   spawn: { tx: 5, ty: 10 },
 

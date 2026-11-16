@@ -19,8 +19,8 @@ export const TRACKS = {
   contemplation: { key: 'bgm-contemplation', path: 'music/contemplation.mp3', gain: 2.5, preload: true },
   /** 3xBlast. Piano, gitar, string, melankolis. Ending chapter / momen refleksi. */
   smallThings: { key: 'bgm-small-things', path: 'music/small-things.mp3', gain: 0.9, preload: true },
-  /** Kistol. Waltz piano pelan, loop mulus. Disiapkan untuk chapter "Untuk Siti". */
-  snowfall: { key: 'bgm-snowfall', path: 'music/snowfall.ogg', gain: 2, preload: false },
+  /** Kistol. Waltz piano pelan, loop mulus. Chapter 2, Untuk Siti. */
+  snowfall: { key: 'bgm-snowfall', path: 'music/snowfall.ogg', gain: 2, preload: true },
   /** cynicmusic. Lonceng & arpeggio, lembut dan riang. Rumah Kakek dan Nenek di Malang. */
   lullaby: { key: 'bgm-lullaby', path: 'music/happy-lullaby.mp3', gain: 0.9, preload: true },
   /** skrjablin. Chiptune C64 sendu. Di dalam warnet. */

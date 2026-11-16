@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b0f18" />
+    <title>Log Perjalanan Hidup</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0f18'/><rect x='3' y='7' width='2' height='2' fill='%23f2cc60'/><rect x='6' y='7' width='7' height='2' fill='%23c9d1e0'/></svg>"
+    />
+    <style>
+      @font-face {
+        font-family: 'Press Start 2P';
+        src: url('./fonts/PressStart2P.woff2') format('woff2');
+        font-display: block;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        height: 100dvh;
+        background: #0b0f18;
+        overflow: hidden;
+        overscroll-behavior: none;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #game {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

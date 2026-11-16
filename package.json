@@ -1,0 +1,22 @@
+{
+  "name": "log-perjalanan-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Story RPG tanpa battle, versi interaktif seri tulisan Log Perjalanan Hidup.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "assets": "python tools/pack_assets.py"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
+  }
+}

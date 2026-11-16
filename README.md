@@ -20,15 +20,20 @@ npm run assets   # regenerate sprites from assets-src/ (requires Python + Pillow
 
 ## Controls
 
-| Action | Keyboard | Touch |
+| Action | Keyboard | Phone / tablet |
 |---|---|---|
-| Move | Arrow keys / WASD | Hold the screen toward where you want to go |
-| Talk, advance dialogue | E / Space / Enter | Tap |
+| Move | Arrow keys / WASD | Analog stick: touch anywhere on the left side and drag |
+| Talk, advance dialogue | E / Space / Enter | **OK** button (bottom right), or tap the screen |
 | Pick an answer | Up / Down, then E | Tap the answer |
 | Skip prologue | Esc | Tap "lewati >>" |
 | Toggle sound | M | |
+| Fullscreen | | `[ ]` button (top right, Android) |
 
-## Chapters (v0.4)
+### Mobile
+
+The game picks its logical resolution from the screen so the zoom is always a whole number (at least 2x on phones) and the canvas fills the screen with no black bars: 422x195 on a 844x390 phone, 427x240 on a 1280x720 desktop. Holding a phone upright shows a "rotate your phone" screen. On iPhone, *Share → Add to Home Screen* opens the game fullscreen without Safari's bars.
+
+## Chapters (v0.5)
 
 The title screen lets you pick a chapter, or **Continue** where you left off. Progress is saved in the browser.
 

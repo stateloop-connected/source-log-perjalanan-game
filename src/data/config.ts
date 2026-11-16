@@ -1,5 +1,21 @@
-/** Resolusi logis. Kanvas di-scale utuh (FIT) ke layar. */
-export const VIEW = { WIDTH: 480, HEIGHT: 270 } as const;
+/**
+ * Logical resolution for the given screen size.
+ *
+ * The canvas is scaled up to fill the screen, so a fixed 480x270 looks tiny on a phone:
+ * a 844x390 landscape screen only scales it by 1.44 and leaves black bars. Instead we
+ * pick an integer zoom from the screen's short side (at least 2x), then derive the
+ * logical size from it. Sprites stay crisp and the canvas fills the screen edge to edge.
+ *
+ * Always computed as landscape (long side = width), so rotating the phone from portrait
+ * to landscape does not need a new size.
+ */
+export function computeView(screenW: number, screenH: number): { width: number; height: number } {
+  const long = Math.max(screenW, screenH);
+  const short = Math.min(screenW, screenH);
+  const zoom = Math.max(2, Math.floor(short / 230));
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(v)));
+  return { width: clamp(long / zoom, 320, 640), height: clamp(short / zoom, 180, 300) };
+}
 
 export const TILE = 16;
 
@@ -15,11 +31,11 @@ export const COLOR = {
 } as const;
 
 export const PLAYER = {
-  /** Kecepatan jalan, px per detik. */
+  /** Walking speed, px per second. */
   SPEED: 70,
-  /** Jarak maksimum (px, dari kaki pemain) untuk bisa berinteraksi. */
+  /** Max distance (px, from the player's feet) to interact with something. */
   REACH: 26,
 } as const;
 
-/** Huruf per detik untuk efek mesin tik di kotak dialog. */
+/** Letters per second for the dialogue typewriter effect. */
 export const TYPE_SPEED = 45;

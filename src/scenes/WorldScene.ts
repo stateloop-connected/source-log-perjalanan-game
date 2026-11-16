@@ -11,6 +11,7 @@ import { PROP_FRAME } from '../systems/GridMap';
 import { renderGridMap } from '../systems/renderGridMap';
 import { Music, MUSIC_VOLUME, TRACKS } from '../systems/Music';
 import { Sfx } from '../systems/Sfx';
+import { isTouchDevice, TouchPad } from '../systems/TouchPad';
 
 /** Tap lebih singkat dari ini = "ketuk" (interaksi). Lebih lama = tahan untuk jalan. */
 const TAP_MS = 180;
@@ -36,6 +37,7 @@ export class WorldScene extends Phaser.Scene {
   private npcDefs = new Map<string, NpcDef>();
   private aids = new Map<string, Phaser.GameObjects.Image>();
   private tint!: Phaser.GameObjects.Rectangle;
+  private pad?: TouchPad;
   private dialogue!: DialogueBox;
   private prompt!: Phaser.GameObjects.Text;
   private objective!: Phaser.GameObjects.Text;
@@ -118,6 +120,7 @@ export class WorldScene extends Phaser.Scene {
     this.tint = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000).setOrigin(0).setScrollFactor(0).setDepth(80_000).setAlpha(0);
     this.shade = this.add.rectangle(0, 0, this.scale.width, this.scale.height, COLOR.bg).setOrigin(0).setScrollFactor(0).setDepth(95_000).setAlpha(0);
     this.dialogue = new DialogueBox(this);
+    this.pad = isTouchDevice(this) ? new TouchPad(this, () => this.act()) : undefined;
 
     this.setupInput();
     if (this.def.id === 'bandung') this.startNoise();
@@ -320,8 +323,10 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => kb.removeAllKeys(true));
 
     this.input.on('pointerdown', () => (this.pointerDownAt = this.time.now));
-    this.input.on('pointerup', (_p: Phaser.Input.Pointer, over: unknown[]) => {
-      // Ketukan pada opsi pilihan ditangani opsinya sendiri.
+    this.input.on('pointerup', (p: Phaser.Input.Pointer, over: unknown[]) => {
+      // Taps on choice options and touch buttons are handled by those objects.
+      // A release of the analog stick is not a tap either.
+      if (this.pad?.owns(p) && !this.dialogue.isOpen) return;
       if (over.length === 0 && this.time.now - this.pointerDownAt < TAP_MS) this.act();
     });
   }
@@ -393,6 +398,7 @@ export class WorldScene extends Phaser.Scene {
     this.dialogue.update(delta);
     this.updateMovement();
     this.updateFollowers(delta);
+    this.pad?.setVisible(!this.dialogue.isOpen && !this.ended);
     this.player.setDepth(this.player.y);
     // Shadows glow above the night tint; everyone else is y-sorted with the player.
     for (const [id, s] of this.npcs) s.setDepth(this.npcDefs.get(id)?.ghost ? 85_000 + s.y : s.y);
@@ -410,8 +416,15 @@ export class WorldScene extends Phaser.Scene {
     let vx = (down(this.keys.right) ? 1 : 0) - (down(this.keys.left) ? 1 : 0);
     let vy = (down(this.keys.down) ? 1 : 0) - (down(this.keys.up) ? 1 : 0);
 
+    let analog = 1;
+    if (this.pad && vx === 0 && vy === 0) {
+      vx = this.pad.vector.x;
+      vy = this.pad.vector.y;
+      analog = this.pad.vector.length();
+    }
+
     const p = this.input.activePointer;
-    if (vx === 0 && vy === 0 && p.isDown && this.time.now - this.pointerDownAt >= TAP_MS) {
+    if (!this.pad && vx === 0 && vy === 0 && p.isDown && this.time.now - this.pointerDownAt >= TAP_MS) {
       const dx = p.worldX - this.player.x;
       const dy = p.worldY - (this.player.y - 8);
       if (Math.hypot(dx, dy) > 6) {
@@ -422,7 +435,8 @@ export class WorldScene extends Phaser.Scene {
 
     const len = Math.hypot(vx, vy);
     if (len === 0) return idle();
-    this.player.setVelocity((vx / len) * this.speed(), (vy / len) * this.speed());
+    const v = this.speed() * Math.min(1, analog);
+    this.player.setVelocity((vx / len) * v, (vy / len) * v);
     this.facing = Math.abs(vx) > Math.abs(vy) ? (vx < 0 ? 'left' : 'right') : vy < 0 ? 'up' : 'down';
     this.player.play(`zain-walk-${this.facing}`, true);
   }
@@ -433,9 +447,8 @@ export class WorldScene extends Phaser.Scene {
       this.prompt.setVisible(false);
       return;
     }
-    const touch = this.sys.game.device.input.touch && !this.sys.game.device.os.desktop;
     this.prompt
-      .setText(touch ? 'ketuk' : 'E')
+      .setText(this.pad ? 'OK' : 'E')
       .setPosition(t.x, t.y - ('npc' in t.i.at ? 14 : 8))
       .setVisible(true);
   }

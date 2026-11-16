@@ -5,6 +5,7 @@ import { DialogueBox } from '../systems/DialogueBox';
 import { Flags } from '../systems/Flags';
 import { Music, MUSIC_VOLUME, TRACKS } from '../systems/Music';
 import { Sfx } from '../systems/Sfx';
+import { isTouchDevice } from '../systems/TouchPad';
 
 type Step = 'intro' | 'farm' | 'sell' | 'joki' | 'bye' | 'done';
 
@@ -48,12 +49,12 @@ export class WarnetScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#120e18').fadeIn(500, 11, 15, 24);
     Music.play(this, TRACKS.c64, MUSIC_VOLUME.world, 1500);
 
-    // Meja dan monitor tabung.
+    // Desk and CRT monitor, sized from the screen so it fits phones and desktops alike.
     this.add.rectangle(0, height - 30, width, 30, 0x3b2a20).setOrigin(0);
-    const mx = 36;
-    const my = 10;
-    const mw = width - 72;
-    const mh = 196;
+    const mx = Math.round(Math.max(10, width * 0.06));
+    const my = 6;
+    const mw = width - mx * 2;
+    const mh = height - 52;
     this.add.rectangle(mx, my, mw, mh, 0xc9c3b4).setOrigin(0).setStrokeStyle(2, 0x8d877a);
     this.add.rectangle(width / 2 - 30, my + mh, 60, 14, 0xa59f91).setOrigin(0);
     const sx = mx + 10;
@@ -70,15 +71,16 @@ export class WarnetScene extends Phaser.Scene {
     // Panel kiri. Arena farming.
     const gx = sx + 6;
     const gy = sy + 18;
-    const gw = 206;
-    const gh = 104;
+    const gw = Math.round((sw - 18) * 0.52);
+    const gh = sh - 18 - 24;
     this.add.rectangle(gx, gy, gw, gh, 0x3f7d3a).setOrigin(0).setStrokeStyle(1, 0x2b5a28);
-    this.heroX = gx + 50;
+    this.heroX = gx + Math.round(gw * 0.25);
     this.hero = this.add.sprite(this.heroX, gy + gh - 22, 'zain').play('zain-idle-right').setScale(2);
     this.monster = this.add.graphics();
-    this.drawMonster(gx + 150, gy + gh - 30);
-    this.add.rectangle(gx + 130, gy + 14, 40, 4, 0x000000).setOrigin(0);
-    this.hpBar = this.add.rectangle(gx + 130, gy + 14, 40, 4, 0xe2504b).setOrigin(0);
+    const mxm = gx + Math.round(gw * 0.72);
+    this.drawMonster(mxm, gy + gh - 30);
+    this.add.rectangle(mxm - 20, gy + 10, 40, 4, 0x000000).setOrigin(0);
+    this.hpBar = this.add.rectangle(mxm - 20, gy + 10, 40, 4, 0xe2504b).setOrigin(0);
     this.tweens.add({ targets: this.monster, y: -3, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // Panel kanan. Chat.
@@ -144,12 +146,13 @@ export class WarnetScene extends Phaser.Scene {
   }
 
   private refresh(): void {
+    const key = isTouchDevice(this) ? '' : ' [E]';
     const label: Record<Step, string> = {
       intro: '',
-      farm: `${WARNET.farmHint} [E]`,
-      sell: 'jual ke om_kantor [E]',
-      joki: 'jokiin [E]',
-      bye: `${WARNET.logout} [E]`,
+      farm: `${WARNET.farmHint}${key}`,
+      sell: `jual ke om_kantor${key}`,
+      joki: `jokiin${key}`,
+      bye: `${WARNET.logout}${key}`,
       done: '',
     };
     this.action.setText(label[this.step]).setVisible(label[this.step] !== '');
@@ -185,6 +188,7 @@ export class WarnetScene extends Phaser.Scene {
   }
 
   private farm(): void {
+    if (this.items >= ITEMS_NEEDED) return; // waiting for the buyer to show up
     this.swing();
     this.hp = Math.max(0, this.hp - 34);
     this.cameras.main.shake(60, 0.003);

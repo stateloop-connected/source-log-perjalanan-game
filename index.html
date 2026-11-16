@@ -7,6 +7,12 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0b0f18" />
+    <!-- Added to the home screen, the game opens fullscreen without browser bars. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Log Hidup" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <title>Log Perjalanan Hidup</title>
     <link
       rel="icon"
@@ -35,6 +41,28 @@
         position: fixed;
         inset: 0;
       }
+      /* Phones held upright: ask to rotate. Desktop windows that are narrow are left alone. */
+      #putar {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: #0b0f18;
+        color: #f2cc60;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 12px;
+        line-height: 2;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      @media (orientation: portrait) and (pointer: coarse) {
+        #putar {
+          display: flex;
+        }
+      }
       canvas {
         display: block;
         image-rendering: pixelated;
@@ -44,6 +72,7 @@
   </head>
   <body>
     <div id="game"></div>
+    <div id="putar">PUTAR HP-MU<br />KE POSISI MENDATAR</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

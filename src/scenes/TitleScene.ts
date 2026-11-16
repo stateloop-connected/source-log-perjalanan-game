@@ -10,6 +10,7 @@ import { renderGridMap } from '../systems/renderGridMap';
 import { Flags } from '../systems/Flags';
 import { Music, MUSIC_VOLUME, TRACKS } from '../systems/Music';
 import { Sfx } from '../systems/Sfx';
+import { isTouchDevice } from '../systems/TouchPad';
 
 /**
  * Layar judul. Latarnya peta Bandung sungguhan yang bergeser pelan, dengan Zain
@@ -55,9 +56,11 @@ export class TitleScene extends Phaser.Scene {
 
     this.buildBackdrop();
 
+    const top = Math.max(40, height * 0.2);
+    const touch = isTouchDevice(this);
     // Gelapkan latar supaya teks terbaca, lebih gelap di tengah atas tempat judul.
     this.add.rectangle(0, 0, width, height, COLOR.bg, 0.55).setOrigin(0).setScrollFactor(0).setDepth(100_000);
-    this.add.rectangle(0, 40, width, 92, COLOR.bg, 0.5).setOrigin(0).setScrollFactor(0).setDepth(100_000);
+    this.add.rectangle(0, top - 22, width, 82, COLOR.bg, 0.5).setOrigin(0).setScrollFactor(0).setDepth(100_000);
     this.add.rectangle(0, height - 22, width, 22, COLOR.bg, 0.7).setOrigin(0).setScrollFactor(0).setDepth(100_000);
 
     const ui = (x: number, y: number, text: string, size: number, color: string) =>
@@ -69,18 +72,18 @@ export class TitleScene extends Phaser.Scene {
     let n = 0;
     this.time.addEvent({ delay: 45, repeat: cmd.length - 1, callback: () => term.setText(cmd.slice(0, ++n) + '_') });
 
-    const title1 = ui(cx, 66, 'LOG PERJALANAN', 16, COLOR.text).setOrigin(0.5);
-    const title2 = ui(cx, 92, 'HIDUP', 24, COLOR.name).setOrigin(0.5);
+    const title1 = ui(cx, top, 'LOG PERJALANAN', 16, COLOR.text).setOrigin(0.5);
+    const title2 = ui(cx, top + 25, 'HIDUP', 24, COLOR.name).setOrigin(0.5);
     title1.setShadow(2, 2, '#000000', 0, false, true);
     title2.setShadow(2, 2, '#000000', 0, false, true);
-    ui(cx, 118, 'sebuah cerita, dua chapter', 8, COLOR.dim).setOrigin(0.5);
+    ui(cx, top + 49, 'sebuah cerita, dua chapter', 8, COLOR.dim).setOrigin(0.5);
 
-    const press = ui(cx, 186, 'PRESS START', 8, COLOR.text).setOrigin(0.5);
-    const pressHint = ui(cx, 202, 'Enter / ketuk layar', 8, COLOR.dim).setOrigin(0.5);
+    const press = ui(cx, height * 0.69, 'PRESS START', 8, COLOR.text).setOrigin(0.5);
+    const pressHint = ui(cx, height * 0.69 + 16, touch ? 'ketuk layar' : 'Enter / ketuk layar', 8, COLOR.dim).setOrigin(0.5);
     this.tweens.add({ targets: press, alpha: 0.15, duration: 600, yoyo: true, repeat: -1, ease: 'Stepped', easeParams: [3] });
 
-    ui(8, height - 8, 'M  suara', 8, COLOR.dim).setOrigin(0, 1);
-    ui(width - 8, height - 8, 'prototipe v0.4', 8, COLOR.dim).setOrigin(1, 1);
+    if (!touch) ui(8, height - 8, 'M  suara', 8, COLOR.dim).setOrigin(0, 1);
+    ui(width - 8, height - 8, 'prototipe v0.5', 8, COLOR.dim).setOrigin(1, 1);
 
     this.cameras.main.fadeIn(800, 11, 15, 24);
     Music.play(this, TRACKS.town, MUSIC_VOLUME.title, 1500);
@@ -118,7 +121,7 @@ export class TitleScene extends Phaser.Scene {
     const W = grid.widthPx;
     const cam = this.cameras.main;
     cam.setBounds(0, 0, W, grid.heightPx).setRoundPixels(true);
-    cam.setScroll(0, 40);
+    cam.setScroll(0, Math.max(0, (BANDUNG_ROAD + 3) * TILE - this.scale.height * 0.62));
     this.tweens.add({ targets: cam, scrollX: W - this.scale.width, duration: 16000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // Zain dan Siti berjalan berdampingan di jalan utama, lalu muncul lagi dari kiri.
@@ -143,7 +146,7 @@ export class TitleScene extends Phaser.Scene {
     const cx = this.scale.width / 2;
     this.optionTexts = this.options.map((o, i) =>
       this.add
-        .text(cx, 170 + i * 15, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
+        .text(cx, this.scale.height * 0.6 + i * 15, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
         .setOrigin(0.5)
         .setScrollFactor(0)
         .setDepth(100_001)

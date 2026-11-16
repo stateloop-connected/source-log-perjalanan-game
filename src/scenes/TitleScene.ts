@@ -50,7 +50,7 @@ function resumeMap(): string | undefined {
 export class TitleScene extends Phaser.Scene {
   private stage: 'press' | 'menu' | 'leaving' = 'press';
   private options: { label: string; run: () => void }[] = [];
-  private optionTexts: Phaser.GameObjects.Text[] = [];
+  private optionButtons: { bg: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }[] = [];
   private selected = 0;
 
   constructor() {
@@ -60,7 +60,7 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     this.stage = 'press';
     this.selected = 0;
-    this.optionTexts = [];
+    this.optionButtons = [];
     const { width, height } = this.scale;
     const cx = width / 2;
 
@@ -93,7 +93,8 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: press, alpha: 0.15, duration: 600, yoyo: true, repeat: -1, ease: 'Stepped', easeParams: [3] });
 
     if (!touch) ui(8, height - 8, 'M  suara', 8, COLOR.dim).setOrigin(0, 1);
-    ui(width - 8, height - 8, 'prototipe v0.6', 8, COLOR.dim).setOrigin(1, 1);
+    // Narrow phones: the terminal line already fills the top row.
+    if (width >= 460) ui(width - 8, 8, 'prototipe v0.6', 8, COLOR.dim).setOrigin(1, 0);
 
     this.cameras.main.fadeIn(800, 11, 15, 24);
     Music.play(this, TRACKS.town, MUSIC_VOLUME.title, 1500);
@@ -154,21 +155,26 @@ export class TitleScene extends Phaser.Scene {
       { label: `${CARD2.label}. ${CARD2.title}`, run: start(FLAGS2_KEY, CHAPTER2_STORY) },
       { label: `${CARD3.label}. ${CARD3.title}`, run: start(FLAGS3_KEY, CHAPTER3_STORY) },
     ];
+    // Menu entries are buttons, not text lines, so a thumb can hit them on a phone.
     const cx = this.scale.width / 2;
-    this.optionTexts = this.options.map((o, i) =>
-      this.add
-        .text(cx, this.scale.height * 0.56 + i * 14, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(100_001)
+    const h = 17;
+    const step = h + 4;
+    const w = 200;
+    const first = Math.max(this.scale.height * 0.5, 112);
+    this.optionButtons = this.options.map((o, i) => {
+      const bg = this.add.rectangle(0, 0, w, h, COLOR.panel, 0.9).setStrokeStyle(1, COLOR.panelEdge);
+      const label = this.add.text(0, 0, o.label, { fontFamily: FONT, fontSize: '8px', color: COLOR.text }).setOrigin(0.5);
+      const box = this.add.container(cx, first + i * step, [bg, label]).setScrollFactor(0).setDepth(100_001).setSize(w, h);
+      box
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => this.select(i))
         .on('pointerup', () => {
           this.select(i);
           Sfx.confirm();
           o.run();
-        }),
-    );
+        });
+      return { bg, label };
+    });
     this.select(0);
   }
 
@@ -180,9 +186,11 @@ export class TitleScene extends Phaser.Scene {
 
   private select(i: number): void {
     this.selected = i;
-    this.optionTexts.forEach((t, j) =>
-      t.setText(j === i ? `> ${this.options[j].label} <` : this.options[j].label).setColor(j === i ? COLOR.name : COLOR.dim),
-    );
+    this.optionButtons.forEach((b, j) => {
+      const on = j === i;
+      b.bg.setFillStyle(on ? 0xf2cc60 : COLOR.panel, on ? 1 : 0.9).setStrokeStyle(1, on ? 0xffe9a8 : COLOR.panelEdge);
+      b.label.setColor(on ? '#0b0f18' : COLOR.text);
+    });
   }
 
   private leave(next: 'story' | 'world', data?: object): void {
